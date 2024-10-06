@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filégraphie</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            color: #333;
+        }
+        .menu {
+            width: 320px;
+            background-color: #ffffff;
+            padding: 25px;
+            border-right: 1px solid #ddd;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+        }
+        .menu h1 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .upload-section {
+            margin: 20px 0;
+            width: 100%;
+        }
+        .upload-section label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        .upload-section input[type="range"] {
+            width: 100%;
+        }
+
+        .upload-section input[type="file"],
+        .upload-section input[type="number"],
+        .upload-section input[type="text"],
+        .upload-section select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px;
+            width: 100%;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button[disabled] {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .preview-section {
+            flex-grow: 1;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fafafa;
+            overflow: hidden;
+        }
+        .preview-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+        .preview-section img {
+            max-width: 100%;
+            max-height: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: absolute;
+            display: none;
+        }
+        .arrow-buttons {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+        .arrow-buttons button {
+            margin: 5px;
+            font-size: 16px;
+            width: 35px;
+            height: 35px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .arrow-buttons button:hover {
+            background-color: #0056b3;
+        }
+        #dotsImage {
+            z-index: 2;
+            cursor: move;
+            display: none;
+            background-color: transparent;
+        }
+        #jpgImage {
+            z-index: 1;
+            display: none;
+        }
+        #resultSection {
+            margin-top: 20px;
+            display: none;
+        }
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .menu {
+                width: 100%;
+                height: auto;
+                padding: 15px;
+            }
+            .preview-section {
+                height: 50vh;
+                padding: 15px;
+            }
+            .arrow-buttons {
+                top: 5px;
+                right: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="menu">
+        <h1>Filégraphie</h1>
+        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+            <div class="upload-section">
+                <label for="svgUpload">Charger un SVG :</label>
+                <input type="file" id="svgUpload" name="svgUpload" accept=".svg" required>
+                <label for="numDots">Nombre de points:</label>
+                <input type="number" id="numDots" name="numDots" min="10" max="1000" value="300" required>
+                <button type="button" id="generateDotsButton">Génerer les points</button>
+            </div>
+            <div class="upload-section">
+                <label for="jpgUpload">Charger le sujet :</label>
+                <input type="file" id="jpgUpload" name="jpgUpload" accept=".jpg, .jpeg" required>
+            </div>            
+            <div class="upload-section">
+                <label for="typeArt">Type de string art :</label>
+                <select id="typeArt" name="typeArt" required>
+                    <option value="blackWhite">Noir et blanc</option>
+                    <option value="cyanMagentaYellow">En Cyan,Magenta,Jaune</option>
+                    <option value="customColor">Couleurs personnalisées</option>
+                </select>
+            </div>
+            <div class="upload-section" id="customColorSection" style="display: none;">
+                <label for="numColors">Nombre de couleurs :</label>
+                <input type="number" id="numColors" name="numColors" min="1" max="10" value="1">
+                <div id="colorInputs">
+                    <!-- Placeholder for dynamically generated color input fields -->
+                </div>
+            </div>
+            <div class="upload-section">
+                <label for="luminosity">Luminosité : <span id="luminosityValue">0%</span></label>
+                <input type="range" id="luminosity" name="luminosity" min="-100" max="100" value="0">
+                <label for="contrast">Contraste : <span id="contrastValue">0%</span></label>
+                <input type="range" id="contrast" name="contrast" min="-100" max="100" value="0">
+            </div>            
+            <div class="upload-section">
+                <label for="numLines">Nombre de lignes :</label>
+                <input type="number" id="numLines" name="numLines" min="10" max="10000" value="4000" required>
+            </div>
+            <div class="upload-section">
+                <label for="resolution">Résolution désirée (Largeur,Hauteur):</label>
+                <input type="text" id="resolution" name="resolution" value="2000,2000" required>
+            </div>
+            <div class="upload-section">
+                <label for="forbiddenNeighbors">Nombre de points voisins interdits :</label>
+                <input type="number" id="forbiddenNeighbors" name="forbiddenNeighbors" min="0" max="100" value="30" required>
+            </div>
+            <div class="upload-section">
+                <label for="weight">Épaisseur de la ligne (Weight):</label>
+                <input type="number" id="weight" name="weight" value="1" step="1" min="1">
+            </div>
+            <div class="upload-section">
+                <label for="power">Force d'effacement (Power):</label>
+                <input type="number" id="power" name="power" value="255" step="1" min="0" max="255">
+            </div>
+            <div class="upload-section">
+                <label for="lineScoreMethod">Méthode de calcul de score de la ligne :</label>
+                <select id="lineScoreMethod" name="lineScoreMethod" required>
+                    <option value="mean">Mean score</option>
+                    <option value="sum">Sum score</option>
+                </select>
+            </div>    
+            <button type="submit" id="generateArtButton" disabled>Créer mon Linéart !</button>
+            <div class="upload-section">
+                <label for="line_intensity">Transparence de la ligne :</label>
+                <input type="number" id="line_intensity" name="line_intensity" value="120" step="1" min="0" max="255">
+            </div>
+        </form>
+        <div id="resultSection">
+            <h2>Generated String Art:</h2>
+            <img id="stringArtPreview" src="#" alt="String Art">
+        </div>
+    </div>
+    <div class="preview-section">
+        <div class="arrow-buttons">
+            <input type="number" id="movePixels" value="10" min="1" style="margin-bottom: 10px; width: 50px;">
+            <button id="moveUp">↑</button>
+            <button id="moveLeft">←</button>
+            <button id="moveRight">→</button>
+            <button id="moveDown">↓</button>
+            <button id="zoomIn">+</button>
+            <button id="zoomOut">−</button>
+        </div>
+        <img id="jpgImage" src="#" alt="JPG Preview">
+        <img id="dotsImage" src="#" alt="Dots Preview">
+    </div>
+    <script>      
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let originalJpgWidth = 0;
+        let originalJpgHeight = 0;
+
+        // JavaScript for handling dynamic color inputs
+        document.getElementById('typeArt').addEventListener('change', function() {
+            const customColorSection = document.getElementById('customColorSection');
+            if (this.value === 'customColor') {
+                customColorSection.style.display = 'block';
+            } else {
+                customColorSection.style.display = 'none';
+            }
+        });
+
+        document.getElementById('numColors').addEventListener('input', function() {
+            const numColors = parseInt(this.value);
+            const colorInputsContainer = document.getElementById('colorInputs');
+            colorInputsContainer.innerHTML = '';  // Clear previous inputs
+
+            for (let i = 0; i < numColors; i++) {
+                const colorInput = document.createElement('div');
+                colorInput.classList.add('upload-section');
+                colorInput.innerHTML = `
+                    <label for="color${i + 1}">Couleur ${i + 1} (Hex) :</label>
+                    <input type="text" id="color${i + 1}" name="colors[]" value="#000000" pattern="^#([A-Fa-f0-9]{6})$" required>
+                `;
+                colorInputsContainer.appendChild(colorInput);
+            }
+        });
+
+        document.getElementById("luminosity").addEventListener("input", function(event) {
+            const brightness = event.target.value;
+            document.getElementById("luminosityValue").innerText = `${brightness}%`;
+            const normalizedBrightness = 1 + (brightness / 100);  // Normalized to a value usable for CSS filter
+            const contrast = document.getElementById("contrast").value;
+            const normalizedContrast = 1 + (contrast / 100);
+            document.getElementById("jpgImage").style.filter = `brightness(${normalizedBrightness}) contrast(${normalizedContrast})`;
+        });
+    
+        document.getElementById("contrast").addEventListener("input", function(event) {
+            const contrast = event.target.value;
+            document.getElementById("contrastValue").innerText = `${contrast}%`;
+            const normalizedContrast = 1 + (contrast / 100);  // Normalized to a value usable for CSS filter
+            const brightness = document.getElementById("luminosity").value;
+            const normalizedBrightness = 1 + (brightness / 100);
+            document.getElementById("jpgImage").style.filter = `brightness(${normalizedBrightness}) contrast(${normalizedContrast})`;
+        });
+        document.getElementById('generateDotsButton').addEventListener('click', function() {
+            var formData = new FormData();
+            var svgFile = document.getElementById('svgUpload').files[0];
+            var numDots = document.getElementById('numDots').value;
+            var resolution = document.getElementById('resolution').value;
+        
+            // Clear the previous dots image
+            const dotsImage = document.getElementById('dotsImage');
+            dotsImage.src = ''; // Clear the image source
+            dotsImage.style.display = 'none'; // Hide the image
+        
+            formData.append('svgUpload', svgFile);
+            formData.append('numDots', numDots);
+            formData.append('resolution', resolution);
+        
+            fetch('/generate-dots', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.dots_image_url) { // Ensure the URL is valid
+                      dotsImage.src = data.dots_image_url; // Set the new dots image URL
+                      dotsImage.style.display = 'block'; // Show the new image
+                      document.getElementById('generateArtButton').disabled = false; // Enable the next button
+                  } else {
+                      console.error('No image URL returned:', data);
+                  }
+              }).catch(error => console.error('Error:', error));
+        });
+    
+        document.getElementById('jpgUpload').addEventListener('change', function() {
+            var file = this.files[0];
+            var reader = new FileReader();
+    
+            reader.onload = function(e) {
+                var img = document.getElementById('jpgImage');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                
+                // Get the original dimensions of the jpg image
+                var tempImg = new Image();
+                tempImg.onload = function() {
+                    originalJpgWidth = tempImg.width;
+                    originalJpgHeight = tempImg.height;
+                }
+                tempImg.src = e.target.result;
+            };
+    
+            reader.readAsDataURL(file);
+        });
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            var formData = new FormData(this);
+            formData.append('offsetX', offsetX);
+            formData.append('offsetY', offsetY);
+            formData.append('scale', scale);
+
+            var jpgImageRect = document.getElementById('jpgImage').getBoundingClientRect();
+            var dotsImageRect = document.getElementById('dotsImage').getBoundingClientRect();
+
+            var cropX = Math.max(0, dotsImageRect.left - jpgImageRect.left);
+            var cropY = Math.max(0, dotsImageRect.top - jpgImageRect.top);
+            var cropWidth = Math.min(jpgImageRect.right, dotsImageRect.right) - dotsImageRect.left;
+            var cropHeight = Math.min(jpgImageRect.bottom, dotsImageRect.bottom) - dotsImageRect.top;
+
+            var originalJpgWidth = document.getElementById('jpgImage').naturalWidth;
+            var originalJpgHeight = document.getElementById('jpgImage').naturalHeight;
+
+            cropX = Math.round(cropX / jpgImageRect.width * originalJpgWidth);
+            cropY = Math.round(cropY / jpgImageRect.height * originalJpgHeight);
+            cropWidth = Math.round(cropWidth / jpgImageRect.width * originalJpgWidth);
+            cropHeight = Math.round(cropHeight / jpgImageRect.height * originalJpgHeight);
+
+            formData.append('cropX', cropX);
+            formData.append('cropY', cropY);
+            formData.append('cropWidth', cropWidth);
+            formData.append('cropHeight', cropHeight);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                document.getElementById('stringArtPreview').src = data.string_art_url;
+                document.getElementById('resultSection').style.display = 'block';
+              }).catch(error => console.error('Error:', error));
+        });
+
+        function moveFrame(dx, dy) {
+            var movePixels = parseInt(document.getElementById('movePixels').value);
+            offsetX += dx * movePixels;
+            offsetY += dy * movePixels;
+            document.getElementById('dotsImage').style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+        }
+
+        function zoom(change) {
+            var dotsImage = document.getElementById('dotsImage');
+            var movePixels = parseInt(document.getElementById('movePixels').value);
+            var newWidth = dotsImage.width + change * movePixels;
+            var newHeight = dotsImage.height + change * movePixels;
+            dotsImage.style.width = `${newWidth}px`;
+            dotsImage.style.height = `${newHeight}px`;
+        }
+
+        document.getElementById('moveUp').addEventListener('click', () => moveFrame(0, -1));
+        document.getElementById('moveLeft').addEventListener('click', () => moveFrame(-1, 0));
+        document.getElementById('moveRight').addEventListener('click', () => moveFrame(1, 0));
+        document.getElementById('moveDown').addEventListener('click', () => moveFrame(0, 1));
+        document.getElementById('zoomIn').addEventListener('click', () => zoom(1));
+        document.getElementById('zoomOut').addEventListener('click', () => zoom(-1));
+
+        document.getElementById('svgUpload').addEventListener('change', function() {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('dotsImage').src = e.target.result;
+            }
+            reader.readAsDataURL(this.files[0]);
+        });
+
+        document.getElementById('jpgUpload').addEventListener('change', function() {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('jpgImage').src = e.target.result;
+                document.getElementById('jpgImage').style.display = 'block';
+            }
+            reader.readAsDataURL(this.files[0]);
+        });
+    </script>    
+</body>
+</html>

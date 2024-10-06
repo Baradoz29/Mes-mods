@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Dot Cloud with SVG Path and Image</title>
+    <style>
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background-color: #3a3a3a; /* ChatGPT dark grey background */
+        }
+
+        
+                /* Divider Style for the Left Border */
+        #menu-tabs {
+            /* Each menu content block style */
+            width: 40px;
+            background-color: #ddd;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Styling for the Tabs/Buttons on the Left Divider */
+        .menu-tab {
+            width: 40px;
+            height: 40px;
+            background-color: #bbb;
+            border: 1px solid #aaa;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+
+        .menu-tab:hover {
+            background-color: #aaa;
+        }
+
+        /* Styling for Active/Inactive Menus */
+        .menu-content {
+            display: none;  /* Hide all menus by default */
+        }
+
+        #menu1, #menu2, #menu3 {
+            /* Each menu content block style */
+            width: 300px;
+            background-color: #ddd;
+            padding: 20px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Dot container (left side) */
+        #dot-container {
+            position: relative;
+            flex: 1;
+            height: 100vh;
+            background-color: #3a3a3a; /* ChatGPT background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Zoom indicator */
+        #zoom-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 10;
+        }
+
+        canvas {
+            border: 1px solid black; /* Optional: For visibility */
+            background-color: white; /* White canvas background */
+        }
+
+
+        /* Centering content inside the dot container */
+        #transform-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: 0 0;
+            overflow: visible;
+        }
+
+        .dot {
+            position: absolute;
+            background-color: black;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .label {
+            position: absolute;
+            font-size: 12px;
+            transform: translate(10px, -2px);
+        }
+
+        button, input {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        svg {
+            width: auto; /* Remove max-width and use auto */
+            height: auto; /* Remove max-height and use auto */
+            fill: rgba(0, 255, 0, 0.2); /* Transparent Green fill */
+            overflow: visible;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            filter: grayscale(100%); /* Apply greyscale filter to images */
+            cursor: grab;
+            position: absolute;
+        }
+
+        /* Scrollable menu content */
+        #menu {
+            overflow-y: auto;
+        }
+
+        #dialog-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #dialog {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        #dialog input {
+            margin: 10px 0;
+            width: 80px;
+        }
+
+        /* Centering content inside the dot container */
+        #inner-content {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: 0 0;
+            overflow: visible;
+        }
+
+        /* Centering content inside the dot container */
+        #dynamic-canvas {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: 0 0;
+            overflow: visible;
+        }
+
+        /* Bounding box with resizing arrows */
+        .bounding-box {
+            position: absolute;
+            border: 2px dashed rgba(0, 0, 255, 0.8);
+            display: none;
+        }
+
+        .resize-handle {
+            width: 10px;
+            height: 10px;
+            background-color: blue;
+            position: absolute;
+            cursor: pointer;
+        }
+
+        /* Resize handle positions */
+        .top-left { top: -5px; left: -5px; cursor: nw-resize; }
+        .top-right { top: -5px; right: -5px; cursor: ne-resize; }
+        .bottom-left { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .bottom-right { bottom: -5px; right: -5px; cursor: se-resize; }
+        .top { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+        .bottom { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+        .left { top: 50%; left: -5px; transform: translateY(-50%); cursor: w-resize; }
+        .right { top: 50%; right: -5px; transform: translateY(-50%); cursor: e-resize; }
+    </style>
+</head>
+<body>
+    <!-- Dot Container (Full width minus the menu) -->
+    <div id="dot-container">
+        <div id="zoom-indicator">100%</div>
+        <div id="transform-container"> <!-- New parent container for transformations -->
+            <canvas id="dynamic-canvas"></canvas>
+            <div id="inner-content"></div>
+        </div>
+    </div>
+
+    <div id="menu-tabs">
+        <button class="menu-tab" data-target="menu1">Canvas</button>
+        <button class="menu-tab" data-target="menu2">SVG</button>
+        <button class="menu-tab" data-target="menu3">Image</button> <!-- New Image menu -->
+    </div>
+    
+    <!-- Menu 1: Canvas Settings (Default) -->
+    <div id="menu1" class="menu-content">
+        <label for="canvas-width">Largeur de la toile (cm)</label>
+        <input type="number" id="canvas-width" placeholder="Largeur (cm)" value="40" min="1" max="100" step="0.5">
+    
+        <label for="canvas-height">Hauteur de la toile (cm)</label>
+        <input type="number" id="canvas-height" placeholder="Hauteur (cm)" value="40" min="1" max="100" step="0.5">
+    </div>
+    
+    <!-- Menu 2: SVG Settings -->
+    <div id="menu2" class="menu-content" style="display: none;">
+        <label for="dot-count">Nombre de clous</label>
+        <input type="number" id="dot-count" placeholder="Nombre de clous" min="1" max="500" value="100" />
+        
+        <label for="dot-diameter">Diamètre des clous (en mm)</label>
+        <input type="number" id="dot-diameter" placeholder="Diamètre des clous (mm)" value="2" min="1" max="5" step="0.05" />
+        
+        <input type="file" id="svg-input" accept=".svg" />
+    
+        <h4>SVG and Dot Coordinates</h4>
+        <label for="svg-x">SVG X Coordinate</label>
+        <input type="number" id="svg-x" value="0" min="0" step="1">
+        
+        <label for="svg-y">SVG Y Coordinate</label>
+        <input type="number" id="svg-y" value="0" min="0" step="1">
+    </div>
+    
+    <!-- Menu 3: Image Settings -->
+    <div id="menu3" class="menu-content" style="display: none;">
+        <input type="file" id="image-input" accept="image/*" />
+        
+        <h4>Image Dimensions</h4>
+        <label for="image-width">Image Width</label>
+        <input type="number" id="image-width" value="0" min="1" step="1">
+    
+        <label for="image-height">Image Height</label>
+        <input type="number" id="image-height" value="0" min="1" step="1">
+    
+        <h4>Image Coordinates</h4>
+        <label for="image-x">Image X Coordinate</label>
+        <input type="number" id="image-x" value="0" min="0" step="1">
+    
+        <label for="image-y">Image Y Coordinate</label>
+        <input type="number" id="image-y" value="0" min="0" step="1">
+    </div>
+
+    <!-- Dialog for Image Dimensions -->
+    <div id="dialog-container">
+        <div id="dialog">
+            <p>Set image dimensions:</p>
+            <label for="image-width">Width:</label>
+            <input type="number" id="image-width" value="0">px
+            <label for="image-height">Height:</label>
+            <input type="number" id="image-height" value="0">px
+            <br>
+            <button id="set-dimensions-button">Set Dimensions</button>
+        </div>
+    </div>
+
+    <!-- Bounding box with resizing handles -->
+    <div id="bounding-box" class="bounding-box">
+        <div class="resize-handle top-left"></div>
+        <div class="resize-handle top-right"></div>
+        <div class="resize-handle bottom-left"></div>
+        <div class="resize-handle bottom-right"></div>
+        <div class="resize-handle top"></div>
+        <div class="resize-handle bottom"></div>
+        <div class="resize-handle left"></div>
+        <div class="resize-handle right"></div>
+    </div>
+
+    <script>
+        let path, zoom = 1, isPanning = false, startX, startY, innerX = 0, innerY = 0;
+        let dotDiameter = 2;
+        let isResizing = false; // To check if we're in resizing mode
+        const boundingBox = document.createElement("div"); // For resizing
+        boundingBox.className = "bounding-box";
+        document.body.appendChild(boundingBox);
+
+        // Constants for real-world dimension-based zoom calculation
+        const PPI = 113.5; // Use the actual PPI for your screen
+        const MM_PER_INCH = 25.4; // Millimeters per inch
+        const PIXELS_PER_MM = PPI / MM_PER_INCH; // Calculate pixels per millimeter
+        const PIXELS_PER_CM = (PPI / MM_PER_INCH) * 10; // Convert cm to pixels
+
+        const canvas = document.getElementById("dynamic-canvas");
+        const innerContent = document.getElementById("inner-content");
+        const transformContainer = document.getElementById("transform-container");
+
+        // Function to toggle between menus
+        document.querySelectorAll('.menu-tab').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetMenuId = this.dataset.target;
+
+                // Hide all menus
+                document.querySelectorAll('.menu-content').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+
+                // Show the selected menu
+                document.getElementById(targetMenuId).style.display = 'block';
+            });
+        });
+
+        // Function to handle image dimensions and coordinates
+        const imageInput = document.getElementById('image-input');
+        const imageWidthInput = document.getElementById('image-width');
+        const imageHeightInput = document.getElementById('image-height');
+        const imageXInput = document.getElementById('image-x');
+        const imageYInput = document.getElementById('image-y');
+        let imageElement; // Single image element
+        let canvasWidthInPx, canvasHeightInPx, cmToPxFactor; // Variables for cm to px conversion
+
+        // Update image dimensions and position
+        function updateImageDimensions() {
+            if (imageElement) {
+                imageElement.width = imageWidthInput.value;
+                imageElement.height = imageHeightInput.value;
+                imageElement.style.left = `${imageXInput.value}px`;
+                imageElement.style.top = `${imageYInput.value}px`;
+            }
+        }
+
+        // Image upload handler
+        imageInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                if (imageElement) {
+                    imageElement.remove(); // Remove previous image if any
+                }
+
+                imageElement = new Image();
+                imageElement.src = e.target.result;
+                imageElement.style.position = 'absolute';
+                imageElement.style.left = `${imageXInput.value}px`;
+                imageElement.style.top = `${imageYInput.value}px`;
+                document.getElementById('transform-container').appendChild(imageElement);
+                
+                // Set initial width/height based on the image's natural size
+                imageWidthInput.value = imageElement.naturalWidth;
+                imageHeightInput.value = imageElement.naturalHeight;
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        // Set up the canvas and determine cm to px conversion
+        function setupCanvas() {
+            const canvasWidthInCm = document.getElementById('canvas-width').value; // in cm
+            const canvasHeightInCm = document.getElementById('canvas-height').value; // in cm
+
+            // Canvas size in pixels
+            canvasWidthInPx = document.getElementById('dynamic-canvas').width;
+            canvasHeightInPx = document.getElementById('dynamic-canvas').height;
+
+            // Conversion factor (pixels per cm)
+            cmToPxFactor = canvasWidthInPx / canvasWidthInCm;
+        }
+
+        // Add event listeners for image size and position changes
+        imageWidthInput.addEventListener('input', updateImageDimensions);
+        imageHeightInput.addEventListener('input', updateImageDimensions);
+        imageXInput.addEventListener('input', updateImageDimensions);
+        imageYInput.addEventListener('input', updateImageDimensions);
+
+        // Similar logic for SVG coordinates if needed
+        const svgXInput = document.getElementById('svg-x');
+        const svgYInput = document.getElementById('svg-y');
+        let svgElement; // You'll need to implement similar logic for SVG coordinates
+
+        function updateSVGCoordinates() {
+            if (svgElement) {
+                svgElement.style.left = `${cmToPx(svgXInput.value)}px`;
+                svgElement.style.top = `${cmToPx(svgYInput.value)}px`;
+            }
+        }
+        
+        svgXInput.addEventListener('input', updateSVGCoordinates);
+        svgYInput.addEventListener('input', updateSVGCoordinates);
+
+        // Update the canvas size dynamically based on input size
+        document.getElementById('canvas-width').addEventListener('input', updateCanvasSize);
+        document.getElementById('canvas-height').addEventListener('input', updateCanvasSize);
+
+        function updateCanvasSize() {
+            const canvasWidthCm = parseFloat(document.getElementById('canvas-width').value);
+            const canvasHeightCm = parseFloat(document.getElementById('canvas-height').value);
+
+            const canvasWidthPx = canvasWidthCm * PIXELS_PER_CM;
+            const canvasHeightPx = canvasHeightCm * PIXELS_PER_CM;
+
+            const canvas = document.getElementById('dynamic-canvas');
+
+            // Set canvas dimensions
+            canvas.width = canvasWidthPx;
+            canvas.height = canvasHeightPx;
+
+            // Center the canvas within the container
+            canvas.style.left = `calc(50% - ${canvas.width / 2}px)`;
+            canvas.style.top = `calc(50% - ${canvas.height / 2}px)`;
+
+            updateDots();  // Update dots when canvas size changes
+        }
+
+        // Apply the transform to the inner content (translation and scaling)
+        function applyTransformations() {
+            // Apply zoom and translation to the transform container
+            const transformString = `translate(${innerX}px, ${innerY}px) scale(${zoom})`;
+            const transformContainer = document.getElementById("transform-container");
+            transformContainer.style.transform = transformString; // Apply transform here
+        }
+
+        // Function to update the zoom indicator
+        function updateZoomIndicator() {
+            const zoomPercentage = Math.round(zoom * 100);  // Convert zoom factor to percentage
+            document.getElementById("zoom-indicator").textContent = `${zoomPercentage}%`;
+        }
+
+        // Display the SVG in the container with transparent green fill, centered, and at correct real-world size
+        function displaySVG(svgElement, widthInCm, heightInCm) {
+            const container = document.getElementById('inner-content');
+
+            const svgNamespace = "http://www.w3.org/2000/svg";
+            const pathElement = document.createElementNS(svgNamespace, "path");
+
+            pathElement.setAttribute('d', path);
+            pathElement.setAttribute('fill', 'rgba(0, 255, 0, 0.2)'); // Transparent green fill
+
+            svgElement.innerHTML = ""; // Clear any existing content in the SVG
+            svgElement.appendChild(pathElement);
+            container.appendChild(svgElement);
+
+            // Convert dimensions to pixels based on screen PPI
+            const widthInPx = widthInCm * 10 * PIXELS_PER_MM;  // Convert cm to mm to pixels
+            const heightInPx = heightInCm * 10 * PIXELS_PER_MM;
+
+            // Set the size of the SVG to match real-world dimensions
+            svgElement.setAttribute('width', `${widthInPx}px`);
+            svgElement.setAttribute('height', `${heightInPx}px`);
+
+            // Set initial zoom based on the loaded SVG size
+            zoom = 1; // Start zoom at 100%
+            updateZoomIndicator(); // Update the zoom display
+
+            applyTransformations(); // Apply transformations to center the SVG properly
+        }
+
+        // Automatically update dots when the number of dots changes
+        document.getElementById("dot-count").addEventListener("input", updateDots);
+
+        function updateDots() {
+            const container = document.getElementById("inner-content");
+            const dotCount = parseInt(document.getElementById("dot-count").value);
+            clearDots();
+        
+            const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            const pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            pathElement.setAttribute("d", path);
+            tempSvg.appendChild(pathElement);
+        
+            const pathLength = pathElement.getTotalLength();
+            for (let i = 0; i < dotCount; i++) {
+                const point = pathElement.getPointAtLength((i / dotCount) * pathLength);
+                const adjustedPoint = adjustForTransform(point.x, point.y, false); // Adjust position but do not over-scale
+        
+                createDot(container, adjustedPoint.x, adjustedPoint.y, i + 1);
+            }
+        
+            document.body.removeChild(tempSvg); // Remove the temporary SVG
+        }
+        
+        // Adjust points for current transformations
+        function adjustForTransform(x, y, applyZoom = true) {
+            const svgElement = document.querySelector('svg');
+            const svgBBox = svgElement.getBBox();
+
+            // Calculate scale based on actual SVG dimensions
+            const scaleX = svgElement.clientWidth / svgBBox.width;
+            const scaleY = svgElement.clientHeight / svgBBox.height;
+
+            let adjustedX = x * scaleX;
+            let adjustedY = y * scaleY;
+
+            if (applyZoom) {
+                // Apply zoom only when necessary, not during dot creation
+                adjustedX = (adjustedX * zoom) + innerX;
+                adjustedY = (adjustedY * zoom) + innerY;
+            }
+
+            // Return adjusted position without adjusting for diameter in this function (we'll handle it in createDot)
+            return { x: adjustedX, y: adjustedY };
+        }
+
+        // Create a dot at (x, y) with the given index label
+        function createDot(container, x, y, index) {
+            const dot = document.createElement("div");
+            const diameterInPx = dotDiameter * PIXELS_PER_MM; // Convert mm to pixels
+            dot.className = "dot";
+            dot.style.width = `${diameterInPx}px`;
+            dot.style.height = `${diameterInPx}px`;
+
+            // Set the left and top to the center of the dot
+            dot.style.left = `${x}px`;
+            dot.style.top = `${y}px`;
+
+            // Keep the dot centered on the point by using translate(-50%, -50%)
+            dot.style.transform = `translate(-50%, -50%)`;
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.innerText = index;
+
+            dot.appendChild(label);
+            container.appendChild(dot);
+        }
+
+        // Clear dots from the container
+        function clearDots() {
+            const dots = document.querySelectorAll(".dot");
+            dots.forEach(dot => dot.remove());
+        }
+
+        // Function to handle zooming with dynamic step changes
+        document.getElementById('dot-container').addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            // Dynamically adjust zoom steps based on current zoom level
+            let delta;
+            if (zoom < 1) {
+                delta = e.deltaY > 0 ? -0.05 : 0.05;  // Smaller steps for zoom levels below 1
+            } else if (zoom < 5) {
+                delta = e.deltaY > 0 ? -0.1 : 0.1;  // Moderate steps for zoom levels between 1 and 5
+            } else {
+                delta = e.deltaY > 0 ? -0.5 : 0.5;  // Larger steps for zoom levels above 5
+            }
+
+            const mouseX = e.clientX - transformContainer.getBoundingClientRect().left; // Adjust for container
+            const mouseY = e.clientY - transformContainer.getBoundingClientRect().top;
+
+            const prevZoom = zoom;
+
+            // Update zoom factor
+            zoom += delta;
+
+            // Ensure zoom remains between 10% and 5000%, without going negative
+            zoom = Math.min(Math.max(0.1, zoom), 50);  // Limit zoom between 0.1 (10%) and 50 (5000%)
+
+            // Calculate the new position to ensure the mouse doesn't move relative to objects
+            const newInnerX = (mouseX / prevZoom * zoom) - mouseX;
+            const newInnerY = (mouseY / prevZoom * zoom) - mouseY;
+
+            // Update inner position based on zooming
+            innerX -= newInnerX;
+            innerY -= newInnerY;
+
+            // Apply the transform to the inner content (translation and scaling)
+            applyTransformations();
+            updateZoomIndicator();
+        });
+
+        // Update dot size when the dot diameter is changed
+        document.getElementById("dot-diameter").addEventListener("input", function() {
+            dotDiameter = parseFloat(this.value); // Get the value in mm
+            updateDotsDiameter();
+        });
+
+        function updateDotsDiameter() {
+            const dots = document.querySelectorAll(".dot");
+            dots.forEach(dot => {
+                const diameterInPx = dotDiameter * PIXELS_PER_MM;  // Convert mm to pixels
+                dot.style.width = `${diameterInPx}px`;
+                dot.style.height = `${diameterInPx}px`;
+
+                // Ensure dot stays centered when the diameter changes
+                dot.style.transform = `translate(-50%, -50%)`;
+            });
+        }
+
+        // Handle SVG file loading
+        document.getElementById("svg-input").addEventListener("change", function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(e.target.result, "image/svg+xml");
+                const svgElement = svgDoc.querySelector('svg'); // Get the full SVG element
+                const svgPath = svgDoc.querySelector('path'); // Get the path
+
+                if (svgPath && svgElement) {
+                    path = svgPath.getAttribute('d');
+                    const viewBox = svgElement.viewBox.baseVal;
+
+                    const widthInCm = viewBox.width / 10;
+                    const heightInCm = viewBox.height / 10;
+
+                    displaySVG(svgElement, widthInCm, heightInCm); // Display the corrected size SVG
+                    updateDots();  // Automatically update dots after SVG is loaded
+                } else {
+                    alert("No path found in the SVG file. Please upload a valid SVG with a path element.");
+                }
+            };
+
+            reader.readAsText(file);
+        });
+
+        // Function to add the image to the canvas
+        document.getElementById("image-input").addEventListener("change", function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = document.createElement("img");
+                img.src = e.target.result;
+                img.id = "image";
+                img.style.left = "100px";
+                img.style.top = "100px";
+                img.style.width = "200px";
+                img.style.height = "200px";
+                img.setAttribute("draggable", false);  // Disable native drag functionality
+                document.getElementById("inner-content").appendChild(img);
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        // Function to drag the selected object
+        function dragObject(event) {
+            if (!isResizing && selectedObject) {
+                const x = event.clientX - startX;
+                const y = event.clientY - startY;
+                selectedObject.style.left = `${x}px`;
+                selectedObject.style.top = `${y}px`;
+
+                // Move bounding box along with the object
+                showBoundingBox(selectedObject);
+            }
+        }
+
+        // Stop dragging the object
+        function stopDragObject() {
+            document.removeEventListener("mousemove", dragObject);
+            document.removeEventListener("mouseup", stopDragObject);
+        }
+
+        // Show bounding box and resize handles around the selected object
+        function showBoundingBox(element) {
+            boundingBox.style.display = "block";
+            boundingBox.style.width = `${element.offsetWidth}px`;
+            boundingBox.style.height = `${element.offsetHeight}px`;
+            boundingBox.style.left = `${element.offsetLeft}px`;
+            boundingBox.style.top = `${element.offsetTop}px`;
+        }
+
+        // Add event listeners for the resize handles
+        document.querySelectorAll(".resize-handle").forEach(handle => {
+            handle.addEventListener("mousedown", startResize);
+        });
+
+        // Start resizing the object
+        function startResize(event) {
+            isResizing = true;
+            const handle = event.target;
+
+            startX = event.clientX;
+            startY = event.clientY;
+            startWidth = selectedObject.offsetWidth;
+            startHeight = selectedObject.offsetHeight;
+
+            document.addEventListener("mousemove", resizeObject);
+            document.addEventListener("mouseup", stopResize);
+        }
+
+        // Resize the selected object based on handle
+        function resizeObject(event) {
+            const dx = event.clientX - startX;
+            const dy = event.clientY - startY;
+
+            if (selectedObject) {
+                if (event.target.classList.contains("top-left")) {
+                    selectedObject.style.width = `${startWidth - dx}px`;
+                    selectedObject.style.height = `${startHeight - dy}px`;
+                    selectedObject.style.left = `${selectedObject.offsetLeft + dx}px`;
+                    selectedObject.style.top = `${selectedObject.offsetTop + dy}px`;
+                } else if (event.target.classList.contains("top-right")) {
+                    selectedObject.style.width = `${startWidth + dx}px`;
+                    selectedObject.style.height = `${startHeight - dy}px`;
+                    selectedObject.style.top = `${selectedObject.offsetTop + dy}px`;
+                } else if (event.target.classList.contains("bottom-left")) {
+                    selectedObject.style.width = `${startWidth - dx}px`;
+                    selectedObject.style.height = `${startHeight + dy}px`;
+                    selectedObject.style.left = `${selectedObject.offsetLeft + dx}px`;
+                } else if (event.target.classList.contains("bottom-right")) {
+                    selectedObject.style.width = `${startWidth + dx}px`;
+                    selectedObject.style.height = `${startHeight + dy}px`;
+                } else if (event.target.classList.contains("top")) {
+                    selectedObject.style.height = `${startHeight - dy}px`;
+                    selectedObject.style.top = `${selectedObject.offsetTop + dy}px`;
+                } else if (event.target.classList.contains("bottom")) {
+                    selectedObject.style.height = `${startHeight + dy}px`;
+                } else if (event.target.classList.contains("left")) {
+                    selectedObject.style.width = `${startWidth - dx}px`;
+                    selectedObject.style.left = `${selectedObject.offsetLeft + dx}px`;
+                } else if (event.target.classList.contains("right")) {
+                    selectedObject.style.width = `${startWidth + dx}px`;
+                }
+
+                // Update bounding box as the object resizes
+                showBoundingBox(selectedObject);
+            }
+        }
+
+        // Stop resizing the object
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener("mousemove", resizeObject);
+            document.removeEventListener("mouseup", stopResize);
+        }
+    </script>
+    <script src="\Javascript\scriptRaccourcis.js"></script>
+</body>
+</html>
